@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Bulky.DataAccess.Repository.IRepository;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Bulky.Models.ViewModels;
+using Microsoft.AspNetCore.Mvc.Core.Infrastructure;
 
 namespace BulkyWeb.Areas.Admin.Controllers
 {
@@ -53,19 +54,40 @@ namespace BulkyWeb.Areas.Admin.Controllers
             if (ModelState.IsValid)
             {
                 string wwRootPath = _webHostEnvironment.WebRootPath;
+
                 if (file != null)
                 {
                     string filename=Guid.NewGuid().ToString()+Path.GetExtension(file.FileName);
                     string productPath=Path.Combine(wwRootPath, @"images\product");
+
+                    if (!string.IsNullOrEmpty(productVM.Product.ImageUrl))
+                    {
+                        var oldPath=Path.Combine(wwRootPath,productVM.Product.ImageUrl.TrimStart('\\'));
+                        if (System.IO.File.Exists(oldPath))
+                        {
+                            System.IO.File.Delete(oldPath);
+                        }
+                    }
+
                     using(var fileStream=new FileStream(Path.Combine(productPath, filename), FileMode.Create))
                     {
                         file.CopyTo(fileStream);
                     }
                     productVM.Product.ImageUrl = @"images\product\" + filename;
                 }
-                _unitOfWork.Product.Add(productVM.Product);
+                if (productVM.Product.Id == 0)
+                {
+                    _unitOfWork.Product.Add(productVM.Product);
+                    TempData["Success"] = "Product Created Successfully";
+                }
+                else
+                {
+                    _unitOfWork.Product.Update(productVM.Product);
+                    TempData["Success"] = "Product updated Successfully";
+                }
+               
                 _unitOfWork.Save();
-                TempData["Success"] = "Category Created Successfully";
+                
                 return RedirectToAction("Index");
             }
             else
@@ -76,9 +98,6 @@ namespace BulkyWeb.Areas.Admin.Controllers
                     Text = u.Name,
                     Value = u.Id.ToString()
                 });
-                    
-
-                
                 return View(productVM);
             }
 
